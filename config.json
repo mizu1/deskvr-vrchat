@@ -1,0 +1,38 @@
+{
+  "vrchat": {
+    "host": "127.0.0.1",
+    "port": 9000,
+    "enabled": true
+  },
+  "glassvr": {
+    "host": "127.0.0.1",
+    "enabled": true,
+    "hmd_port": 9100,
+    "left_port": 9102,
+    "right_port": 9101,
+    "protocol": "both"
+  },
+  "capture": {
+    "processes": ["VRChat.exe", "vrcompositor.exe", "vrmonitor.exe"],
+    "mouse_sensitivity": 0.045,
+    "invert_y": false,
+    "recenter_mouse": true
+  },
+  "body": {
+    "height": 1.70,
+    "profile": "standard"
+  },
+  "input": {
+    "movement_via": "controller",
+    "menu_via": "controller",
+    "jump_via": "both",
+    "pointer_key": "ALT",
+    "pointer_sensitivity": 0.08
+  },
+  "start": {
+    "enabled": true,
+    "countdown": 5,
+    "focus_game": true
+  },
+  "debug": false
+}
