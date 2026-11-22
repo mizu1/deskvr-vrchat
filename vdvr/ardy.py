@@ -322,6 +322,7 @@ class ArdyPlayer:
             enabled=not self.dry_run and bool(osc_cfg.get("enabled", True)),
         )
         self._last_status = time.perf_counter()
+        self._stop_requested = False
 
     # ------------------------------------------------------------------ send
     @staticmethod
@@ -359,6 +360,10 @@ class ArdyPlayer:
             time.sleep(period)
         self._log("calibration pose finished")
 
+    def request_stop(self) -> None:
+        """Ask a running player to blend back to rest and exit."""
+        self._stop_requested = True
+
     # ------------------------------------------------------------------- run
     def run(self, duration: float | None = None) -> int:
         period = 1.0 / self.rate
@@ -380,6 +385,10 @@ class ArdyPlayer:
                 try:
                     now = time.perf_counter()
                     elapsed = now - start
+                    if self._stop_requested and self.timeline._return_time is None:
+                        self.timeline.begin_return(elapsed)
+                        self._stop_requested = False
+                        self._log("stop requested: returning to rest")
                     frame, phase = self.timeline.sample(elapsed)
                     self._send(frame)
 

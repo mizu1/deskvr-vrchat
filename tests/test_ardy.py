@@ -66,6 +66,28 @@ class ArdySourceTests(unittest.TestCase):
         timeline.begin_return(0.5)
         self.assertEqual(timeline.phase(0.5), "return")
 
+    def test_player_request_stop(self) -> None:
+        import threading
+        import time
+
+        cfg = {"glassvr": {"enabled": False}, "vrchat": {"enabled": False}}
+        player = ardy.ArdyPlayer(
+            self.source,
+            cfg,
+            dry_run=True,
+            rate=120.0,
+            loop=True,
+            return_seconds=0.1,
+            verbose=False,
+        )
+        thread = threading.Thread(target=player.run, daemon=True)
+        thread.start()
+        time.sleep(0.2)
+        player.request_stop()
+        thread.join(timeout=5.0)
+        self.assertFalse(thread.is_alive())
+        self.assertGreater(player.frames, 0)
+
     def test_player_dry_run(self) -> None:
         cfg = {"glassvr": {"enabled": False}, "vrchat": {"enabled": False}}
         player = ardy.ArdyPlayer(self.source, cfg, dry_run=True, rate=120.0, verbose=False)

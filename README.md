@@ -56,6 +56,38 @@ python -m vdvr.ardy E:\...\motion.npz --height 1.70 --profile standard --calibra
 
 ---
 
+## 0.6 自然语言实时生成
+
+先停 `run.py`，保持 GlassVR/SteamVR/VRChat 运行：
+
+```powershell
+cd D:\ProgramProject\vrchat-just-desktop-use-vr
+python -m vdvr.live --height 1.70 --profile standard
+```
+
+它会：
+
+- 用 ARDY 的 python 环境启动 `vdvr/prompt_worker.py`（常驻，模型只加载一次）；
+- 如果 7871 的 student encoder 没在跑，自动启动；
+- 读入自然语言，生成 `motion.npz`，再通过 GlassVR + OSC 播放；
+- 当前动作循环，直到你输入下一句。
+
+```
+prompt> a person waves with their right hand
+prompt> a person walks forward and stops
+prompt> a person sits down on the floor
+```
+
+- 首次加载约 20 s；之后每句约 1–4 s（取决于 GPU/步数）。
+- `--calibrate 5`：第一段前保持 T-pose + 双扳机 5 秒，方便 Calibrate FBT。
+- `--duration 4 --steps 10`：生成片段长度 / 扩散步数。
+- `--dry-run`：只生成+重定向，不发送 GlassVR/OSC。
+- 默认路径可用 `--infer-repo` / `--worker-python` 覆盖。
+- 生成文件在 `ardy-0.5b-infer/outputs/live/`。
+- ARDY 模型和 VRChat 共用 GPU；8 GB 显存紧张时先关掉其他 GPU 程序。
+
+---
+
 ## 1. 结论（可行，且不需要任何追踪硬件）
 
 VRChat 的 **OSC Trackers** 最多支持 8 个点（髋、胸、左右脚、左右膝、左右肘），
