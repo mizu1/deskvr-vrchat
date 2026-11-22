@@ -15,16 +15,8 @@ MOTION = Path(
         r"E:\360Downloads\SeedData\repos\ardy-0.5b-infer\outputs\pipeline\motion_44299933.npz",
     )
 )
-REPO = Path(
-    os.environ.get(
-        "ARDY_VRC_REPO",
-        r"E:\360Downloads\SeedData\repos\ardy-action-to-vrchat",
-    )
-)
-
-
 def _ardy_available() -> bool:
-    return MOTION.exists() and (REPO / "ardy_vrc").is_dir()
+    return MOTION.exists()
 
 
 @unittest.skipUnless(_ardy_available(), "ARDY motion/checkout not available")
@@ -32,7 +24,7 @@ class ArdySourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         try:
-            cls.source = ardy.ArdySource(MOTION, height=1.70, profile="standard", ardy_repo=REPO)
+            cls.source = ardy.ArdySource(MOTION, height=1.70, profile="standard")
         except FileNotFoundError as exc:  # pragma: no cover - env dependent
             raise unittest.SkipTest(str(exc))
 

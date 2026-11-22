@@ -18,15 +18,12 @@ Usage::
     # optional: hold a T-pose + both triggers for VRChat's Calibrate FBT
     python -m vdvr.ardy motion.npz --calibrate 5
 
-The ARDY retargeter lives in a separate checkout; set ``ARDY_VRC_REPO`` or pass
-``--ardy-repo``.  It needs ``numpy``.
+The ARDY core is vendored in ``vdvr/ardy_core``; only ``numpy`` is required.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,14 +32,13 @@ from types import SimpleNamespace
 import numpy as np
 
 from . import config as config_module
+from .ardy_core import mathutil
+from .ardy_core.retarget import Retargeter, RetargetOptions
+from .ardy_core.skeleton import JOINT, load_motion
 from .body import PROFILES, sanitize_tracker
 from .glassvr import GlassVrClient, IndexInput
 from .math3d import q_from_euler_deg, qmul
 from .vrchat import VrchatOsc
-
-DEFAULT_ARDY_REPO = Path(
-    os.environ.get("ARDY_VRC_REPO", str(Path.home() / "ardy-action-to-vrchat"))
-)
 
 # The OSC tracker slot numbers used by vdvr/body.py (also the order VRChat's
 # tracker consumers expect in this setup).
@@ -58,43 +54,20 @@ NAME_TO_SLOT = {
 }
 SLOT_TO_NAME = {slot: name for name, slot in NAME_TO_SLOT.items()}
 
-_ARDY: SimpleNamespace | None = None
-
-
-def _load_ardy(repo: str | Path | None = None) -> SimpleNamespace:
-    """Import ardy_vrc lazily so the rest of vdvr does not depend on numpy."""
-    global _ARDY
-    if _ARDY is not None:
-        return _ARDY
-
-    root = Path(repo) if repo else DEFAULT_ARDY_REPO
-    if not (root / "ardy_vrc").is_dir():
-        raise FileNotFoundError(
-            f"ardy_vrc not found under {root}. Pass --ardy-repo or set ARDY_VRC_REPO."
-        )
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
-
-    from ardy_vrc import mathutil
-    from ardy_vrc.retarget import Retargeter, RetargetOptions
-    from ardy_vrc.skeleton import JOINT, load_motion
-
-    _ARDY = SimpleNamespace(
-        root=root,
-        mathutil=mathutil,
-        Retargeter=Retargeter,
-        RetargetOptions=RetargetOptions,
-        JOINT=JOINT,
-        load_motion=load_motion,
-        euler=mathutil.euler_zxy_from_matrix,
-        matrix_from_quat=mathutil.matrix_from_quat,
-        quat_from_matrix=mathutil.quat_from_matrix,
-        mirror_x_rotation=mathutil.mirror_x_rotation,
-        slerp=mathutil.quat_slerp,
-        lerp=mathutil.lerp,
-        smoothstep=mathutil.smoothstep,
-    )
-    return _ARDY
+_ARDY = SimpleNamespace(
+    mathutil=mathutil,
+    Retargeter=Retargeter,
+    RetargetOptions=RetargetOptions,
+    JOINT=JOINT,
+    load_motion=load_motion,
+    euler=mathutil.euler_zxy_from_matrix,
+    matrix_from_quat=mathutil.matrix_from_quat,
+    quat_from_matrix=mathutil.quat_from_matrix,
+    mirror_x_rotation=mathutil.mirror_x_rotation,
+    slerp=mathutil.quat_slerp,
+    lerp=mathutil.lerp,
+    smoothstep=mathutil.smoothstep,
+)
 
 
 @dataclass
@@ -117,9 +90,8 @@ class ArdySource:
         motion_path: str | Path,
         height: float = 1.70,
         profile: str = "standard",
-        ardy_repo: str | Path | None = None,
     ) -> None:
-        ardy = _load_ardy(ardy_repo)
+        ardy = _ARDY
         if profile not in PROFILES:
             raise ValueError(f"unknown tracker profile: {profile!r}")
         self._ardy = ardy
@@ -463,7 +435,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("motion", type=Path, help="ARDY motion.npz")
     parser.add_argument("--config", type=str, default=None, help="vdvr config.json")
-    parser.add_argument("--ardy-repo", type=str, default=None, help="checkout containing the ardy_vrc package")
     parser.add_argument("--height", type=float, default=None, help="your height in metres")
     parser.add_argument("--profile", choices=sorted(PROFILES), default=None, help="OSC tracker count")
     parser.add_argument("--loop", action="store_true", help="loop until Ctrl+C")
@@ -489,7 +460,6 @@ def main(argv: list[str] | None = None) -> int:
         args.motion,
         height=float(cfg["body"]["height"]),
         profile=str(cfg["body"]["profile"]),
-        ardy_repo=args.ardy_repo,
     )
     player = ArdyPlayer(
         source,

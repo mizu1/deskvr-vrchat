@@ -44,16 +44,14 @@ python tools/glassvr_mode.py normal
 
 ```powershell
 # 先停掉 start.bat / run.py（鼠标模拟器）；否则两边会同时写 GlassVR UDP
-python -m vdvr.ardy E:\...\motion.npz `
-  --ardy-repo E:\360Downloads\SeedData\repos\ardy-action-to-vrchat `
-  --height 1.70 --profile standard --calibrate 5
+python -m vdvr.ardy E:\...\motion.npz --height 1.70 --profile standard --calibrate 5
 ```
 
 - `--calibrate 5`：保持 T-pose + 双扳机 5 秒，方便 VRChat `Calibrate FBT`；完成后自动播放。
 - 槽位与 `vdvr/body.py` 一致：`1=hip, 2=chest, 3/4=feet, 5/6=knees, 7/8=elbows`。
 - 其他参数：`--loop`、`--fade-in`、`--return-seconds`、`--rate`、`--dry-run`。
-- 需要 `numpy`（`pip install -r requirements-ardy.txt`）和 ARDY 的 `ardy_vrc` 包；
-  用 `--ardy-repo` 或环境变量 `ARDY_VRC_REPO` 指定。
+- 需要 `numpy`（`pip install -r requirements-ardy.txt`）；ARDY 核心已 vendor 到
+  `vdvr/ardy_core/`，不再依赖 `ardy-action-to-vrchat` 仓库。
 - 播放期间手柄按键/菜单不工作（输入源被 ARDY 接管）；Ctrl+C 会平滑回默认姿势并退出。
 
 ---
