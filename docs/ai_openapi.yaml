@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: vdvr AI performance API
+  version: 1.0.0
+  description: |
+    Local-only HTTP API that turns a natural-language prompt into one ARDY motion
+    and performs it once in VRChat (head/hands via GlassVR, body via OSC trackers).
+    Clips do not loop; each /perform returns after the avatar has blended back to
+    the rest pose.
+servers:
+  - url: http://127.0.0.1:7878
+
+paths:
+  /health:
+    get:
+      summary: Readiness of the ARDY encoder/model
+      responses:
+        "200":
+          description: Always 200 while the API is up; poll `ready`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /status:
+    get:
+      summary: Current/last performance state
+      responses:
+        "200":
+          description: Status object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Status"
+
+  /perform:
+    post:
+      summary: Generate and perform one clip (one-shot, no loop)
+      description: |
+        Synchronous: generates the clip, plays it once, blends back to rest over
+        `return_seconds`, then responds. While a performance runs, the request
+        holds a lock; `wait: false` returns 409 instead of queueing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PerformRequest"
+      responses:
+        "200":
+          description: Performance finished and the avatar is at rest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformResponse"
+        "400":
+          description: Invalid JSON, missing prompt, or bad field type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Another performance is running and `wait` was false.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: ARDY model/encoder is not ready yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Generation or retargeting failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /stop:
+    post:
+      summary: Stop the current playback and blend back to rest
+      description: |
+        Interrupts playback (not generation). A running /perform returns after the
+        player has returned to rest.
+      responses:
+        "200":
+          description: Stop acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopResponse"
+
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        ready:
+          type: boolean
+        state:
+          type: string
+          enum: [loading, idle, generating, playing, error]
+      required: [ok, ready, state]
+
+    Status:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        ready:
+          type: boolean
+        state:
+          type: string
+          enum: [loading, idle, generating, playing, error]
+        error:
+          type: string
+          nullable: true
+        prompt:
+          type: string
+          nullable: true
+        motion:
+          type: string
+          nullable: true
+      required: [ok, ready, state]
+
+    PerformRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          description: Natural-language action description (English works best).
+        duration:
+          type: number
+          default: 4.0
+          minimum: 1
+          maximum: 10
+          description: Generated clip length in seconds.
+        steps:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 50
+          description: Diffusion steps.
+        seed:
+          type: integer
+          default: 0
+        return_seconds:
+          type: number
+          default: 1.2
+          minimum: 0
+          maximum: 10
+          description: Blend back to the rest pose after the clip.
+        wait:
+          type: boolean
+          default: true
+          description: Queue behind a running performance (false => 409 when busy).
+
+    PerformResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        prompt:
+          type: string
+        motion:
+          type: string
+          description: Absolute path to the generated SOMA77 motion.npz.
+        frames:
+          type: integer
+        encoder:
+          type: string
+        timings:
+          type: object
+          additionalProperties:
+            type: number
+          description: encode_s / generate_s.
+        clip_seconds:
+          type: number
+        return_seconds:
+          type: number
+      required: [ok, prompt, motion, clip_seconds, return_seconds]
+
+    StopResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        state:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        state:
+          type: string
+      required: [ok, error]

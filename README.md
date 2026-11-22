@@ -70,7 +70,7 @@ python -m vdvr.live --height 1.70 --profile standard
 - 用 ARDY 的 python 环境启动 `vdvr/prompt_worker.py`（常驻，模型只加载一次）；
 - 如果 7871 的 student encoder 没在跑，自动启动；
 - 读入自然语言，生成 `motion.npz`，再通过 GlassVR + OSC 播放；
-- 当前动作循环，直到你输入下一句。
+- 每句只播放一次，结束后回默认姿势；下一句再播放（不循环）。
 
 ```
 prompt> a person waves with their right hand
@@ -85,6 +85,28 @@ prompt> a person sits down on the floor
 - 默认路径可用 `--infer-repo` / `--worker-python` 覆盖。
 - 生成文件在 `ardy-0.5b-infer/outputs/live/`。
 - ARDY 模型和 VRChat 共用 GPU；8 GB 显存紧张时先关掉其他 GPU 程序。
+
+---
+
+## 0.7 AI 表演接口（HTTP）
+
+给 AI / Agent 调用的本地接口：自然语言 → 生成动作 → **播放一次** → 回默认姿势，不循环。
+
+```powershell
+python -m vdvr.live --api --api-port 7878 --height 1.70 --profile standard
+```
+
+```powershell
+curl.exe http://127.0.0.1:7878/health
+curl.exe -X POST http://127.0.0.1:7878/perform `
+  -H "Content-Type: application/json" `
+  -d "{\"prompt\":\"a person waves with their right hand\",\"duration\":3}"
+curl.exe -X POST http://127.0.0.1:7878/stop
+```
+
+- 完整协议、字段、错误码、并发/时序：**[docs/AI_INTERFACE.md](docs/AI_INTERFACE.md)**
+- 机器可读定义：**[docs/ai_openapi.yaml](docs/ai_openapi.yaml)**
+- `/perform` 是同步的：返回时角色已经回到默认姿势；`wait:false` 忙时 409；`/stop` 打断当前播放。
 
 ---
 

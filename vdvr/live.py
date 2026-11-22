@@ -185,7 +185,7 @@ class LivePlayer:
         player = ArdyPlayer(
             source,
             self.cfg,
-            loop=True,
+            loop=False,
             fade_in=self.fade_in,
             return_seconds=self.return_seconds,
             dry_run=self.dry_run,
@@ -243,8 +243,52 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--checkpoints-dir", default=None)
     parser.add_argument("--no-encoder", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="generate and retarget without sending OSC/GlassVR")
+    parser.add_argument("--api", action="store_true", help="serve the local HTTP performance API")
+    parser.add_argument("--api-host", default="127.0.0.1")
+    parser.add_argument("--api-port", type=int, default=7878)
     parser.add_argument("--prompt", default=None, help="first prompt (otherwise ask on stdin)")
     return parser
+
+
+def _run_api(args, cfg: dict, height: float, profile: str) -> int:
+    from .ai import AiServer, PerformanceController
+
+    worker = LiveWorker(
+        args.worker_python,
+        args.worker_script,
+        args.infer_repo,
+        model=args.model,
+        checkpoints_dir=args.checkpoints_dir,
+        no_encoder=args.no_encoder,
+    )
+    controller = PerformanceController(
+        cfg,
+        height,
+        profile,
+        worker,
+        dry_run=args.dry_run,
+        fade_in=args.fade_in,
+        default_return_seconds=args.return_seconds,
+    )
+    threading.Thread(target=controller.initialize, daemon=True).start()
+    try:
+        server = AiServer((args.api_host, args.api_port), controller)
+    except OSError as exc:
+        print(f"[ai] cannot bind {args.api_host}:{args.api_port}: {exc}", file=sys.stderr)
+        controller.close()
+        return 2
+    host, port = server.server_address[:2]
+    print(f"[ai] HTTP API on http://{host}:{port}; poll /health until ready", flush=True)
+    if args.calibrate > 0:
+        print("[ai] --calibrate is ignored in API mode; calibrate FBT before starting", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[ai] interrupted", flush=True)
+    finally:
+        server.server_close()
+        controller.close()
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -273,6 +317,9 @@ def main(argv: list[str] | None = None) -> int:
             "GlassVR UDP ports",
             flush=True,
         )
+    if args.api:
+        return _run_api(args, cfg, height, profile)
+
     worker = LiveWorker(
         args.worker_python,
         args.worker_script,
