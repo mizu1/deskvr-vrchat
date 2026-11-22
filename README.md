@@ -34,6 +34,30 @@ python tools/glassvr_mode.py normal
 
 ---
 
+## 0.5 ARDY 动作回放（头/手 + 身体）
+
+这个模式把鼠标输入源换成 ARDY 的 `motion.npz`：
+
+- 头 / 左手 / 右手 → GlassVR UDP 9100 / 9102 / 9101（VRChat 6 点 IK 的头和手）
+- hip / chest / feet / knees / elbows → VRChat OSC 9000
+- 因此 **不需要 8 点 FBIK，也不需要改 VRChat 的 IK/身高设置**
+
+```powershell
+# 先停掉 start.bat / run.py（鼠标模拟器）；否则两边会同时写 GlassVR UDP
+python -m vdvr.ardy E:\...\motion.npz `
+  --ardy-repo E:\360Downloads\SeedData\repos\ardy-action-to-vrchat `
+  --height 1.70 --profile standard --calibrate 5
+```
+
+- `--calibrate 5`：保持 T-pose + 双扳机 5 秒，方便 VRChat `Calibrate FBT`；完成后自动播放。
+- 槽位与 `vdvr/body.py` 一致：`1=hip, 2=chest, 3/4=feet, 5/6=knees, 7/8=elbows`。
+- 其他参数：`--loop`、`--fade-in`、`--return-seconds`、`--rate`、`--dry-run`。
+- 需要 `numpy`（`pip install -r requirements-ardy.txt`）和 ARDY 的 `ardy_vrc` 包；
+  用 `--ardy-repo` 或环境变量 `ARDY_VRC_REPO` 指定。
+- 播放期间手柄按键/菜单不工作（输入源被 ARDY 接管）；Ctrl+C 会平滑回默认姿势并退出。
+
+---
+
 ## 1. 结论（可行，且不需要任何追踪硬件）
 
 VRChat 的 **OSC Trackers** 最多支持 8 个点（髋、胸、左右脚、左右膝、左右肘），
